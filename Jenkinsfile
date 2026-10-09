@@ -19,24 +19,23 @@ pipeline {
 
         stage('Static C Code Analysis') {
             steps {
-                script {
-                    echo '[CI-ANALYZER] Compiling the clean analysis toolchain environment...'
-                    // 1. Force a clean local compile of your Analysis image file
-                    def analyzerImage = docker.build("c-analyzer-suite:${env.BUILD_NUMBER}", "-f Dockerfile.Analysis .")
-                    
-                    echo '[CI-ANALYZER] Booting toolchain container...'
-                    // 2. Run inside the container block natively (Bypasses the agent proxy bug completely)
-                    analyzerImage.inside('-u root') {
-                        echo '[CI-ANALYZER] Running Cppcheck static scan...'
-                        sh 'cppcheck --xml --xml-version=2 --enable=all --inconclusive main.c 2> cppcheck-result.xml'
-                        
-                        echo '[CI-ANALYZER] Generating compilation maps for Clang-Tidy...'
-                        sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
-                        
-                        echo '[CI-ANALYZER] Executing Clang-Tidy code reviews...'
-                        sh 'run-clang-tidy -p . > clang-tidy-result.log || true'
-                    }
-                }
+                echo '[CI-ANALYZER] Compiling the clean analysis toolchain environment...'
+                // 1. Compile your custom analysis image file on the host engine cleanly
+                sh 'docker build -t c-analyzer-suite:latest -f Dockerfile.Analysis .'
+				
+                echo '[CI-ANALYZER] Running static scans via shared named volume...'
+                // 2. Run container using direct named-volume routing to bypass the DinD path visibility bug
+                sh '''
+                    docker run --rm \
+                      -v jenkins-data:/var/jenkins_home \
+                      -w /var/jenkins_home/workspace/${JOB_NAME} \
+                      c-analyzer-suite:latest \
+                      bash -c "
+                        cppcheck --xml --xml-version=2 --enable=all --inconclusive main.c 2> cppcheck-result.xml && \
+                        cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true && \
+                        run-clang-tidy -p . > clang-tidy-result.log || true
+                      "
+                '''
             }
         }
 
