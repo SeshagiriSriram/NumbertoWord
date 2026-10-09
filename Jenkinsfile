@@ -1,6 +1,7 @@
 pipeline {
     // Tells the pipeline that unless specified otherwise by a stage, run on any available worker node
     agent any
+    
     stages {
         stage('Checkout Source Code') {
             steps {
@@ -25,15 +26,16 @@ pipeline {
                 }
             }
             steps {
-                // CLEAN UP: Removed the apt-get install step since tools are already pre-baked!
                 echo '[CI-ANALYZER] Executing Cppcheck static analysis profile...'
-                sh 'cppcheck --xml --xml-version=2 --enable=all --inconclusive . 2> cppcheck-result.xml'
+                // FIXED: Explicitly direct the output xml file straight to the shared workspace directory
+                sh 'cppcheck --xml --xml-version=2 --enable=all --inconclusive . 2> ${WORKSPACE}/cppcheck-result.xml'
                 
                 echo '[CI-ANALYZER] Generating compilation maps for Clang-Tidy...'
                 sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
                 
                 echo '[CI-ANALYZER] Executing Clang-Tidy code reviews...'
-                sh 'run-clang-tidy -p . > clang-tidy-result.log || true'
+                // FIXED: Explicitly direct the output log stream straight to the host agent workspace path
+                sh 'run-clang-tidy -p . > ${WORKSPACE}/clang-tidy-result.log || true'
             }
         }
 
