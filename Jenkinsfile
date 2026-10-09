@@ -21,7 +21,7 @@ pipeline {
             agent {
                 dockerfile {
                     // Boots your custom toolchain image instantly from the workspace root
-                    filename 'Dockerfile.analysis'
+                    filename 'Dockerfile.Analysis'
                     args '-u root' 
                 }
             }
