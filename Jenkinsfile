@@ -6,7 +6,7 @@ pipeline {
             steps {
                 // Securely pulls your Git repository over SSH using your pre-seeded host key policy
                 checkout([$class: 'GitSCM', 
-                    branches: [[name: '*/main']], 
+                    branches: [[name: '*/master']], 
                     extensions: [], 
                     userRemoteConfigs: [[
                         credentialsId: 'github-ssh-key', 
