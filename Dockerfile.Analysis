@@ -1,0 +1,24 @@
+FROM ubuntu:24.04
+
+# Prevent interactive prompt locks during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install all C compiler suites, build tools, and static analyzers in one layer
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    cmake \
+    gcc \
+    clang \
+    clang-tidy \
+    cppcheck \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up a generic working directory where Jenkins will mount the C source files
+WORKDIR /workspace
+
+# Run as root inside the container so the analysis engine has full permission 
+# to write the XML/Log report assets out to the Jenkins workspace volume loop
+USER root
+
+CMD ["/bin/bash"]
