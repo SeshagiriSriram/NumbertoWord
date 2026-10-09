@@ -25,19 +25,19 @@ pipeline {
                     args '-u root' 
                 }
             }
-            steps {
+	     steps {
                 echo '[CI-ANALYZER] Executing Cppcheck static analysis profile...'
-                // FIXED: Explicitly direct the output xml file straight to the shared workspace directory
-                sh 'cppcheck --xml --xml-version=2 --enable=all --inconclusive . 2> ${WORKSPACE}/cppcheck-result.xml'
+                // FIXED: Replaced the dot (.) with 'main.c' to stop it from crawling hidden Git/CMake metadata folders
+                // Added '-j 4' to enable multi-threaded processing
+                sh 'cppcheck -j 4 --xml --xml-version=2 --enable=all --inconclusive main.c 2> ${WORKSPACE}/cppcheck-result.xml'
                 
                 echo '[CI-ANALYZER] Generating compilation maps for Clang-Tidy...'
                 sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
                 
                 echo '[CI-ANALYZER] Executing Clang-Tidy code reviews...'
-                // FIXED: Explicitly direct the output log stream straight to the host agent workspace path
                 sh 'run-clang-tidy -p . > ${WORKSPACE}/clang-tidy-result.log || true'
             }
-        }
+ }
 
         stage('Secure Container Build & Push') {
             steps {
