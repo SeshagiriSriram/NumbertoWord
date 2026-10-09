@@ -1,11 +1,11 @@
 pipeline {
-    // Tells the pipeline that unless specified otherwise by a stage, run on any available worker node
+    // Run globally on the built-in worker node
     agent any
     
     stages {
         stage('Checkout Source Code') {
             steps {
-                // Securely pulls your Git repository over SSH using your pre-seeded host key policy
+                // Securely pulls your Git repository over SSH
                 checkout([$class: 'GitSCM', 
                     branches: [[name: '*/master']], 
                     extensions: [], 
@@ -18,25 +18,27 @@ pipeline {
         }
 
         stage('Static C Code Analysis') {
-            agent {
-                dockerfile {
-                    // Boots your custom toolchain image instantly from the workspace root
-                    filename 'Dockerfile.Analysis'
-                    args '-u root' 
+            steps {
+                script {
+                    echo '[CI-ANALYZER] Compiling the clean analysis toolchain environment...'
+                    // 1. Force a clean local compile of your Analysis image file
+                    def analyzerImage = docker.build("c-analyzer-suite:${env.BUILD_NUMBER}", "-f Dockerfile.Analysis .")
+                    
+                    echo '[CI-ANALYZER] Booting toolchain container...'
+                    // 2. Run inside the container block natively (Bypasses the agent proxy bug completely)
+                    analyzerImage.inside('-u root') {
+                        echo '[CI-ANALYZER] Running Cppcheck static scan...'
+                        sh 'cppcheck --xml --xml-version=2 --enable=all --inconclusive main.c 2> cppcheck-result.xml'
+                        
+                        echo '[CI-ANALYZER] Generating compilation maps for Clang-Tidy...'
+                        sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
+                        
+                        echo '[CI-ANALYZER] Executing Clang-Tidy code reviews...'
+                        sh 'run-clang-tidy -p . > clang-tidy-result.log || true'
+                    }
                 }
             }
-	     steps {
-             echo '[INIT] Executing optimized Cppcheck static scan...'
-                // FIXED: Added --suppress=missingIncludeSystem and --force to prevent infinite header lookup loops
-                sh 'cppcheck -j 4 --force --suppress=missingIncludeSystem --xml --xml-version=2 --enable=all --inconclusive main.c 2> ${WORKSPACE}/cppcheck-result.xml'
-                
-                echo '[INIT] Generating compilation maps for Clang-Tidy...'
-                sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
-                
-                echo '[INIT] Executing Clang-Tidy code reviews...'
-                sh 'run-clang-tidy -p . > ${WORKSPACE}/clang-tidy-result.log || true'
-            }
- }
+        }
 
         stage('Secure Container Build & Push') {
             steps {
@@ -44,7 +46,6 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-registry-creds', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
                     
                     echo 'Authenticating to Docker Registry via GPG credential store...'
-                    // Jenkins will dynamically catch and substitute this with **** in console outputs
                     sh 'echo "$REGISTRY_PASS" | docker login --username "$REGISTRY_USER" --password-stdin'
                     
                     echo 'Building C application target deployment container...'
@@ -67,10 +68,9 @@ pipeline {
                     cppCheck(pattern: 'cppcheck-result.xml'),
                     clangTidy(pattern: 'clang-tidy-result.log')
                 ],
-                // Quality gate rules: automatically fail or destabilize the build based on bug severity
                 qualityGates: [
-                    [threshold: 1, type: 'TOTAL', severity: 'HIGH', unstable: false], // Fail if severe bugs exist
-                    [threshold: 10, type: 'TOTAL', severity: 'NORMAL', unstable: true] // Unstable if styling warnings > 10
+                    [threshold: 1, type: 'TOTAL', severity: 'HIGH', unstable: false], 
+                    [threshold: 10, type: 'TOTAL', severity: 'NORMAL', unstable: true] 
                 ]
             )
         }
