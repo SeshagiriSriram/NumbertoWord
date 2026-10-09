@@ -47,10 +47,10 @@ pipeline {
                     sh 'echo "$REGISTRY_PASS" | docker login --username "$REGISTRY_USER" --password-stdin'
                     
                     echo 'Building C application target deployment container...'
-                    sh 'docker build -t my-company/c-app:latest .'
+                    sh 'docker build -t seshagirisriram/c-app:latest .'
                     
                     echo 'Pushing secure image architecture layers...'
-                    sh 'docker push my-company/c-app:latest'
+                    sh 'docker push seshagirisriram/c-app:latest'
                 }
             }
         }
