@@ -18,7 +18,7 @@ pipeline {
 
         stage('Static C Code Analysis') {
             agent {
-                docker {
+                dockerfile {
                     // Boots your custom toolchain image instantly from the workspace root
                     filename 'Dockerfile.analysis'
                     args '-u root' 
