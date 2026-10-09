@@ -26,15 +26,14 @@ pipeline {
                 }
             }
 	     steps {
-                echo '[CI-ANALYZER] Executing Cppcheck static analysis profile...'
-                // FIXED: Replaced the dot (.) with 'main.c' to stop it from crawling hidden Git/CMake metadata folders
-                // Added '-j 4' to enable multi-threaded processing
-                sh 'cppcheck -j 4 --xml --xml-version=2 --enable=all --inconclusive main.c 2> ${WORKSPACE}/cppcheck-result.xml'
+             echo '[INIT] Executing optimized Cppcheck static scan...'
+                // FIXED: Added --suppress=missingIncludeSystem and --force to prevent infinite header lookup loops
+                sh 'cppcheck -j 4 --force --suppress=missingIncludeSystem --xml --xml-version=2 --enable=all --inconclusive main.c 2> ${WORKSPACE}/cppcheck-result.xml'
                 
-                echo '[CI-ANALYZER] Generating compilation maps for Clang-Tidy...'
+                echo '[INIT] Generating compilation maps for Clang-Tidy...'
                 sh 'cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . || true'
                 
-                echo '[CI-ANALYZER] Executing Clang-Tidy code reviews...'
+                echo '[INIT] Executing Clang-Tidy code reviews...'
                 sh 'run-clang-tidy -p . > ${WORKSPACE}/clang-tidy-result.log || true'
             }
  }
